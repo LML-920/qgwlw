@@ -1089,6 +1089,13 @@
 				});
 				return history;
 			},
+			buildCompactRecentHistory() {
+				const history = {};
+				['temp', 'humi', 'heartRate', 'bloodOxygen', 'MQ2', 'MQ7', 'area', 'sstatus'].forEach(key => {
+					history[key] = (this.historyRecords[key] || []).slice(-20);
+				});
+				return history;
+			},
 			buildEventHistory() {
 				const events = [];
 				const areaRows = this.historyRecords.area || [];
@@ -1145,7 +1152,11 @@
 			analyzeDataWithXiaomi(force = false) {
 				if (!this.shouldAnalyzeWithAi(force)) return;
 
-				const snapshot = this.buildSensorSnapshot();
+				const snapshot = {
+					...this.buildSensorSnapshot(),
+					recentHistory: this.buildCompactRecentHistory(),
+					eventHistory: this.buildEventHistory().slice(-40)
+				};
 				this.isAiAnalyzing = true;
 				this.aiLastAnalyzeAt = Date.now();
 
@@ -1158,7 +1169,7 @@
 					data: {
 						snapshot
 					},
-					timeout: 12000,
+					timeout: 30000,
 					success: (res) => {
 						const decision = res.data && res.data.decision;
 

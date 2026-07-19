@@ -12,3 +12,4 @@ config/deepseek.private.js
 config/xiaomi.private.js
 config/onenet.private.js
 deepseek-proxy.*.log
+xiaomi-proxy.*.log
