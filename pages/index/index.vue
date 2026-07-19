@@ -1096,6 +1096,18 @@
 				});
 				return history;
 			},
+			buildChatSnapshot() {
+				const history = {};
+				['temp', 'humi', 'heartRate', 'bloodOxygen', 'MQ2', 'MQ7', 'area', 'sstatus'].forEach(key => {
+					const limit = key === 'area' || key === 'sstatus' ? 200 : 60;
+					history[key] = (this.historyRecords[key] || []).slice(-limit);
+				});
+				return {
+					...this.buildSensorSnapshot(),
+					recentHistory: history,
+					eventHistory: this.buildEventHistory().slice(-160)
+				};
+			},
 			buildEventHistory() {
 				const events = [];
 				const areaRows = this.historyRecords.area || [];
@@ -1199,7 +1211,7 @@
 							reason: '无法连接小米 MiMo 服务。' + (err && err.errMsg ? err.errMsg : ''),
 							abnormalItems: [],
 							trend: '暂无 AI 趋势结论',
-							suggestion: '本地运行请启动 Xiaomi Proxy，线上请检查 Netlify 环境变量'
+							suggestion: '请稍后重试；本地运行请保持小米代理开启，线上请等待 Netlify 部署完成'
 						};
 					},
 					complete: () => {
@@ -1282,9 +1294,9 @@
 					},
 					data: {
 						question,
-						snapshot: this.buildSensorSnapshot()
+						snapshot: this.buildChatSnapshot()
 					},
-					timeout: 15000,
+					timeout: 45000,
 					success: (res) => {
 						const answer = res.data && res.data.answer;
 						if (!answer || !answer.answer) {
@@ -1306,7 +1318,7 @@
 						this.scrollAiChatToBottom();
 					},
 					fail: (err) => {
-						this.aiAnswer = 'AI 对话失败，请确认小米 MiMo Proxy 已启动。' + (err && err.errMsg ? '\n' + err.errMsg : '');
+						this.aiAnswer = 'AI 对话暂时超时，请稍后重试；如果是本地页面，请确认小米 MiMo 代理窗口保持开启。' + (err && err.errMsg ? '\n' + err.errMsg : '');
 						this.aiChatMessages.splice(loadingIndex, 1, {
 							...this.aiChatMessages[loadingIndex],
 							content: this.aiAnswer
