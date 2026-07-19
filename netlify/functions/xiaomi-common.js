@@ -1,4 +1,5 @@
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const XIAOMI_MODEL = process.env.XIAOMI_MODEL || process.env.MIMO_MODEL || 'mimo-v2.5-pro';
+const XIAOMI_API_URL = process.env.XIAOMI_API_URL || 'https://api.xiaomimimo.com/v1/chat/completions';
 
 function json(statusCode, payload) {
 	return {
@@ -13,7 +14,7 @@ function json(statusCode, payload) {
 	};
 }
 
-function parseDeepseekJson(content) {
+function parseXiaomiJson(content) {
 	try {
 		return JSON.parse(content);
 	} catch (err) {
@@ -31,35 +32,43 @@ async function readJsonResponse(response) {
 	}
 }
 
-function isModelQuestion(question) {
-	return /模型|大模型|api|API|DeepSeek|deepseek|接的什么/.test(question || '');
+function getXiaomiApiKey() {
+	return process.env.MIMO_API_KEY || process.env.XIAOMI_API_KEY || '';
 }
 
-async function callDeepseek({ isChat, question, snapshot }) {
-	const apiKey = process.env.DEEPSEEK_API_KEY;
+function isModelQuestion(question) {
+	return /模型|大模型|api|API|小米|MiMo|mimo|Xiaomi|DeepSeek|deepseek/.test(question || '');
+}
+
+async function callXiaomi({ isChat, question, snapshot }) {
+	const apiKey = getXiaomiApiKey();
 	if (!apiKey) {
-		return json(500, { error: 'Netlify 没有配置 DEEPSEEK_API_KEY 环境变量。' });
+		return json(500, { error: 'Netlify 没有配置 MIMO_API_KEY 或 XIAOMI_API_KEY 环境变量。' });
 	}
 
 	if (isChat && isModelQuestion(question)) {
 		return json(200, {
 			answer: {
-				answer: `当前接入的是 DeepSeek API，调用模型是 ${DEEPSEEK_MODEL}。`,
+				answer: `当前接入的是小米 MiMo API，调用模型是 ${XIAOMI_MODEL}。`,
 				evidence: [],
 				confidence: 100
 			}
 		});
 	}
 
-	const deepseekRes = await fetch('https://api.deepseek.com/chat/completions', {
+	const xiaomiRes = await fetch(XIAOMI_API_URL, {
 		method: 'POST',
 		headers: {
+			'api-key': apiKey,
 			Authorization: `Bearer ${apiKey}`,
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			model: DEEPSEEK_MODEL,
+			model: XIAOMI_MODEL,
 			temperature: 0.1,
+			top_p: 0.95,
+			max_completion_tokens: 1024,
+			stream: false,
 			response_format: { type: 'json_object' },
 			messages: [
 				{
@@ -68,7 +77,7 @@ async function callDeepseek({ isChat, question, snapshot }) {
 						'You are a helpful Chinese AI assistant embedded in a mine safety IoT dashboard.',
 						'You can answer normal user questions.',
 						'When the question asks about mine dashboard data, worker history, sensor values, alarms, locations, or falls, answer only from the provided current snapshot and recentHistory/eventHistory data.',
-						`This proxy is currently configured to call DeepSeek model "${DEEPSEEK_MODEL}". If asked what large model/API is connected, answer this directly.`,
+						`This proxy is currently configured to call Xiaomi MiMo model "${XIAOMI_MODEL}". If asked what large model/API is connected, answer this directly.`,
 						'In eventHistory, type="area" means worker mine-area/location changes, and type="status" means personnel status changes such as normal or fall/abnormal.',
 						'If asked where the worker has been, summarize the sequence of mine areas and times.',
 						'If asked about falling, report exact recorded times from status history if available.',
@@ -89,8 +98,8 @@ async function callDeepseek({ isChat, question, snapshot }) {
 					content: JSON.stringify(isChat ? {
 						question,
 						connectedModel: {
-							provider: 'DeepSeek',
-							model: DEEPSEEK_MODEL
+							provider: 'Xiaomi MiMo',
+							model: XIAOMI_MODEL
 						},
 						snapshot
 					} : snapshot)
@@ -99,12 +108,12 @@ async function callDeepseek({ isChat, question, snapshot }) {
 		})
 	});
 
-	const result = await readJsonResponse(deepseekRes);
+	const result = await readJsonResponse(xiaomiRes);
 	const content = result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content;
-	const parsed = parseDeepseekJson(content);
+	const parsed = parseXiaomiJson(content);
 
-	if (!deepseekRes.ok || !parsed) {
-		return json(502, { error: 'DeepSeek 请求失败', detail: result });
+	if (!xiaomiRes.ok || !parsed) {
+		return json(502, { error: '小米 MiMo API 请求失败', detail: result });
 	}
 
 	if (isChat) {
@@ -130,4 +139,4 @@ async function callDeepseek({ isChat, question, snapshot }) {
 	});
 }
 
-module.exports = { callDeepseek, json };
+module.exports = { callXiaomi, json };

@@ -222,7 +222,7 @@
 					</view>
 					<view>
 						<view class="ai-kicker">MINE SAFETY COPILOT</view>
-						<view class="ai-title">DeepSeek 智能研判中心</view>
+						<view class="ai-title">小米 MiMo 智能研判中心</view>
 						<view class="ai-subtitle">仅手动分析数据，支持追问人员轨迹、跌倒时间和风险原因</view>
 					</view>
 				</view>
@@ -231,7 +231,7 @@
 						<text class="ai-btn-mark">✦</text>
 						<text>打开 AI 对话</text>
 					</button>
-					<button class="ai-analyze-btn" :disabled="isAiAnalyzing" @click="analyzeDataWithDeepseek(true)">
+					<button class="ai-analyze-btn" :disabled="isAiAnalyzing" @click="analyzeDataWithXiaomi(true)">
 						{{ isAiAnalyzing ? '分析中...' : '立即 AI 分析' }}
 					</button>
 				</view>
@@ -251,7 +251,7 @@
 			<view class="ai-grid">
 				<view class="ai-stat">
 					<text class="ai-label">连接状态</text>
-					<text class="ai-value success">DeepSeek 已接入</text>
+					<text class="ai-value success">小米 MiMo 已接入</text>
 				</view>
 				<view class="ai-stat">
 					<text class="ai-label">风险等级</text>
@@ -267,7 +267,7 @@
 				</view>
 			</view>
 			<view class="ai-reason">
-				{{ aiDecision && aiDecision.reason ? aiDecision.reason : '点击“立即 AI 分析”时，系统才会调用 DeepSeek 分析当前数据和近期趋势。' }}
+				{{ aiDecision && aiDecision.reason ? aiDecision.reason : '点击“立即 AI 分析”时，系统才会调用小米 MiMo 分析当前数据和近期趋势。' }}
 			</view>
 		</view>
 
@@ -396,7 +396,7 @@
 				<view class="ai-chat-orbit two"></view>
 				<view class="ai-chat-head">
 					<view>
-						<view class="ai-chat-kicker">DEEPSEEK LIVE ASSISTANT</view>
+						<view class="ai-chat-kicker">XIAOMI MIMO LIVE ASSISTANT</view>
 						<view class="ai-chat-title">矿洞安全 AI 指挥舱</view>
 						<view class="ai-chat-tip">对话记录会保留，可追问人员经过矿洞、跌倒时间、传感器异常和当前风险。</view>
 					</view>
@@ -408,7 +408,7 @@
 				<view class="ai-chat-metrics">
 					<view class="ai-chat-metric">
 						<text class="metric-label">模型</text>
-						<text class="metric-value">DeepSeek</text>
+						<text class="metric-value">小米 MiMo</text>
 					</view>
 					<view class="ai-chat-metric">
 						<text class="metric-label">位置历史</text>
@@ -457,9 +457,9 @@
 </template>
 
 <script>
-	const IS_LOCAL_DEEPSEEK = typeof location !== 'undefined' && ['localhost', '127.0.0.1'].includes(location.hostname);
-	const DEEPSEEK_PROXY_URL = IS_LOCAL_DEEPSEEK ? 'http://127.0.0.1:8787/analyze' : '/.netlify/functions/deepseek-analyze';
-	const DEEPSEEK_CHAT_URL = IS_LOCAL_DEEPSEEK ? 'http://127.0.0.1:8787/chat' : '/.netlify/functions/deepseek-chat';
+	const IS_LOCAL_XIAOMI = typeof location !== 'undefined' && ['localhost', '127.0.0.1'].includes(location.hostname);
+	const XIAOMI_ANALYZE_URL = IS_LOCAL_XIAOMI ? 'http://127.0.0.1:8787/analyze' : '/.netlify/functions/xiaomi-analyze';
+	const XIAOMI_CHAT_URL = IS_LOCAL_XIAOMI ? 'http://127.0.0.1:8787/chat' : '/.netlify/functions/xiaomi-chat';
 	const ONENET_QUERY_URL = 'https://iot-api.heclouds.com/thingmodel/query-device-property';
 	const ONENET_SET_DESIRED_URL = 'https://iot-api.heclouds.com/thingmodel/set-device-desired-property';
 	const ONENET_PRODUCT_ID = '0TC2zqK8BU';
@@ -507,7 +507,7 @@
 				aiAnswer: '',
 				aiChatMessages: [],
 				aiChatScrollTop: 0,
-				aiChatStorageKey: 'deepseekAiChatMessages',
+				aiChatStorageKey: 'xiaomiAiChatMessages',
 				aiQuickQuestions: [
 					'人员经过了哪些矿洞？',
 					'最近一次跌倒是什么时候？',
@@ -1061,8 +1061,8 @@
 					localAlarm: this.isAlarm,
 					localAlarmMessage: this.alarmMessage,
 					modelInfo: {
-						provider: 'DeepSeek',
-						proxyEndpoint: DEEPSEEK_PROXY_URL
+						provider: 'Xiaomi MiMo',
+						proxyEndpoint: XIAOMI_ANALYZE_URL
 					},
 					historyStats: this.buildHistoryStats(),
 					recentHistory: this.buildRecentHistory(),
@@ -1142,7 +1142,7 @@
 				const detailMessage = detail && detail.error && (detail.error.message || detail.error);
 				return data.error || data.message || detailMessage || fallback;
 			},
-			analyzeDataWithDeepseek(force = false) {
+			analyzeDataWithXiaomi(force = false) {
 				if (!this.shouldAnalyzeWithAi(force)) return;
 
 				const snapshot = this.buildSensorSnapshot();
@@ -1150,7 +1150,7 @@
 				this.aiLastAnalyzeAt = Date.now();
 
 				uni.request({
-					url: DEEPSEEK_PROXY_URL,
+					url: XIAOMI_ANALYZE_URL,
 					method: 'POST',
 					header: {
 						'Content-Type': 'application/json'
@@ -1163,32 +1163,32 @@
 						const decision = res.data && res.data.decision;
 
 						if (!decision) {
-							console.warn('DeepSeek AI decision parse failed:', res.data);
+							console.warn('Xiaomi MiMo AI decision parse failed:', res.data);
 							this.aiDecision = {
 								riskLevel: 'watch',
 								confidence: 0,
 								summary: 'AI 分析失败',
-								reason: this.getAiErrorMessage(res, 'DeepSeek 没有返回有效分析结果'),
+								reason: this.getAiErrorMessage(res, '小米 MiMo 没有返回有效分析结果'),
 								abnormalItems: [],
 								trend: '暂无 AI 趋势结论',
-								suggestion: '请检查 DeepSeek API Key、模型配置和网络'
+								suggestion: '请检查小米 MiMo API Key、模型配置和网络'
 							};
 							return;
 						}
 
 						this.aiDecision = decision;
-						console.log('DeepSeek AI decision:', decision);
+						console.log('Xiaomi MiMo AI decision:', decision);
 					},
 					fail: (err) => {
-						console.error('DeepSeek AI request failed:', err);
+						console.error('Xiaomi MiMo AI request failed:', err);
 						this.aiDecision = {
 							riskLevel: 'watch',
 							confidence: 0,
 							summary: 'AI 请求失败',
-							reason: '无法连接 DeepSeek 服务。' + (err && err.errMsg ? err.errMsg : ''),
+							reason: '无法连接小米 MiMo 服务。' + (err && err.errMsg ? err.errMsg : ''),
 							abnormalItems: [],
 							trend: '暂无 AI 趋势结论',
-							suggestion: '本地运行请启动 DeepSeek Proxy，线上请检查 Netlify 环境变量'
+							suggestion: '本地运行请启动 Xiaomi Proxy，线上请检查 Netlify 环境变量'
 						};
 					},
 					complete: () => {
@@ -1264,7 +1264,7 @@
 				this.scrollAiChatToBottom();
 
 				uni.request({
-					url: DEEPSEEK_CHAT_URL,
+					url: XIAOMI_CHAT_URL,
 					method: 'POST',
 					header: {
 						'Content-Type': 'application/json'
@@ -1295,7 +1295,7 @@
 						this.scrollAiChatToBottom();
 					},
 					fail: (err) => {
-						this.aiAnswer = 'AI 对话失败，请确认 DeepSeek Proxy 已启动。' + (err && err.errMsg ? '\n' + err.errMsg : '');
+						this.aiAnswer = 'AI 对话失败，请确认小米 MiMo Proxy 已启动。' + (err && err.errMsg ? '\n' + err.errMsg : '');
 						this.aiChatMessages.splice(loadingIndex, 1, {
 							...this.aiChatMessages[loadingIndex],
 							content: this.aiAnswer
@@ -1308,7 +1308,7 @@
 					}
 				});
 			},
-			parseDeepseekDecision(content) {
+			parseXiaomiDecision(content) {
 				if (!content || typeof content !== 'string') return null;
 
 				try {

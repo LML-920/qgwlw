@@ -1,7 +1,7 @@
-@echo off
-title DeepSeek Proxy
+﻿@echo off
+title Xiaomi MiMo Proxy
 cd /d "%~dp0"
-echo Starting DeepSeek proxy...
+echo Starting Xiaomi MiMo proxy...
 echo Project path: %cd%
 echo.
 

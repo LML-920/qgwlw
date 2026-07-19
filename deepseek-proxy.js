@@ -1,21 +1,22 @@
-const http = require('http');
+﻿const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = Number(process.env.DEEPSEEK_PROXY_PORT || 8787);
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const PORT = Number(process.env.XIAOMI_PROXY_PORT || process.env.DEEPSEEK_PROXY_PORT || 8787);
+const XIAOMI_MODEL = process.env.XIAOMI_MODEL || process.env.MIMO_MODEL || 'mimo-v2.5-pro';
+const XIAOMI_API_URL = process.env.XIAOMI_API_URL || 'https://api.xiaomimimo.com/v1/chat/completions';
 const ONENET_PRODUCT_ID = process.env.ONENET_PRODUCT_ID || '0TC2zqK8BU';
 const ONENET_DEVICE_NAME = process.env.ONENET_DEVICE_NAME || 'ESP32S3';
 const ONENET_COMMAND_ATTEMPTS = 1;
 const ONENET_COMMAND_TIMEOUT_MS = 12000;
-const configPath = path.join(__dirname, 'config', 'deepseek.private.js');
-const configText = fs.readFileSync(configPath, 'utf8');
+const configPath = path.join(__dirname, 'config', 'xiaomi.private.js');
+const configText = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
 const apiKeyMatch = configText.match(/apiKey:\s*['"]([^'"]+)['"]/);
-const apiKey = apiKeyMatch && apiKeyMatch[1];
+const apiKey = process.env.MIMO_API_KEY || process.env.XIAOMI_API_KEY || (apiKeyMatch && apiKeyMatch[1]);
 const onenetConfigPath = path.join(__dirname, 'config', 'onenet.private.js');
 
 if (!apiKey) {
-	console.error('DeepSeek API key not found in config/deepseek.private.js');
+	console.error('Xiaomi MiMo API key not found. Set MIMO_API_KEY or create config/xiaomi.private.js');
 	process.exit(1);
 }
 
@@ -170,10 +171,10 @@ const server = http.createServer(async (req, res) => {
 			const question = body.question || '';
 			const isChat = pathname === '/chat';
 
-			if (isChat && /模型|大模型|api|API|DeepSeek|deepseek/.test(question) && /什么|哪个|接|用|调用|名称|model/i.test(question)) {
+			if (isChat && /模型|大模型|api|API|小米|MiMo|mimo|Xiaomi|deepseek/i.test(question)) {
 				sendJson(res, 200, {
 					answer: {
-						answer: `当前接入的是 DeepSeek API，代理配置调用的模型是 ${DEEPSEEK_MODEL}。`,
+						answer: `当前接入的是小米 MiMo API，调用模型是 ${XIAOMI_MODEL}。`,
 						evidence: [],
 						confidence: 100
 					}
@@ -181,15 +182,19 @@ const server = http.createServer(async (req, res) => {
 				return;
 			}
 
-			const deepseekRes = await fetch('https://api.deepseek.com/chat/completions', {
+			const xiaomiRes = await fetch(XIAOMI_API_URL, {
 				method: 'POST',
 				headers: {
+					'api-key': apiKey,
 					Authorization: `Bearer ${apiKey}`,
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					model: DEEPSEEK_MODEL,
+					model: XIAOMI_MODEL,
 					temperature: 0.1,
+					top_p: 0.95,
+					max_completion_tokens: 1024,
+					stream: false,
 					response_format: { type: 'json_object' },
 					messages: [
 						{
@@ -197,7 +202,7 @@ const server = http.createServer(async (req, res) => {
 							content: isChat ? [
 								'You are a helpful Chinese AI assistant embedded in a mine safety IoT dashboard.',
 								'You can answer normal user questions. When the question asks about mine dashboard data, worker history, sensor values, alarms, locations, or falls, answer only from the provided current snapshot and recentHistory/eventHistory data.',
-								`This proxy is currently configured to call DeepSeek model "${DEEPSEEK_MODEL}". If asked what large model/API is connected, answer this directly.`,
+								`This proxy is currently configured to call Xiaomi MiMo model "${XIAOMI_MODEL}". If asked what large model/API is connected, answer this directly.`,
 								'In eventHistory, type="area" means worker mine-area/location changes, and type="status" means personnel status changes such as normal or fall/abnormal.',
 								'Return only JSON with schema: {"answer":"Chinese answer","evidence":["optional very short evidence"],"confidence":0-100}.',
 								'If asked where the worker has been, summarize the sequence of mine areas and times. If asked about falling, report exact recorded times from status history if available.',
@@ -217,8 +222,8 @@ const server = http.createServer(async (req, res) => {
 							content: JSON.stringify(isChat ? {
 								question,
 								connectedModel: {
-									provider: 'DeepSeek',
-									model: DEEPSEEK_MODEL
+									provider: 'Xiaomi MiMo',
+									model: XIAOMI_MODEL
 								},
 								snapshot
 							} : snapshot)
@@ -227,7 +232,7 @@ const server = http.createServer(async (req, res) => {
 				})
 			});
 
-			const result = await deepseekRes.json();
+			const result = await xiaomiRes.json();
 			const content = result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content;
 			let decision = null;
 
@@ -238,8 +243,8 @@ const server = http.createServer(async (req, res) => {
 				if (match) decision = JSON.parse(match[0]);
 			}
 
-			if (!deepseekRes.ok || !decision) {
-				sendJson(res, 502, { error: 'DeepSeek request failed', detail: result });
+			if (!xiaomiRes.ok || !decision) {
+				sendJson(res, 502, { error: 'Xiaomi MiMo request failed', detail: result });
 				return;
 			}
 
@@ -272,7 +277,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-	console.log(`DeepSeek proxy listening on http://127.0.0.1:${PORT}`);
-	console.log(`DeepSeek model: ${DEEPSEEK_MODEL}`);
+	console.log(`Xiaomi MiMo proxy listening on http://127.0.0.1:${PORT}`);
+	console.log(`Xiaomi MiMo model: ${XIAOMI_MODEL}`);
 	console.log(`OneNET device: ${ONENET_PRODUCT_ID}/${ONENET_DEVICE_NAME}`);
 });

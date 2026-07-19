@@ -1,7 +1,7 @@
-@echo off
-title DeepSeek Proxy - DO NOT CLOSE
+﻿@echo off
+title Xiaomi MiMo Proxy - DO NOT CLOSE
 cd /d "%~dp0"
-echo Starting DeepSeek proxy...
+echo Starting Xiaomi MiMo proxy...
 echo Keep this window open while using AI analysis.
 echo.
 
