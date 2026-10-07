@@ -1,4 +1,7 @@
-const XIAOMI_MODEL = process.env.XIAOMI_MODEL || process.env.MIMO_MODEL || 'mimo-v2.5-pro';
+const configuredModel = process.env.XIAOMI_MODEL || process.env.MIMO_MODEL || 'mimo-v2.6-flash';
+// Migrate old deployment settings as well as the code default.
+const legacyModels = ['mimo-v2-flash', 'mimo-v2-pro', 'mimo-v2-omni', 'mimo-v2.5', 'mimo-v2.5-pro'];
+const XIAOMI_MODEL = legacyModels.includes(configuredModel) ? 'mimo-v2.6-flash' : configuredModel;
 const XIAOMI_API_URL = process.env.XIAOMI_API_URL || 'https://api.xiaomimimo.com/v1/chat/completions';
 
 function json(statusCode, payload) {
@@ -19,14 +22,18 @@ function parseModelJson(content) {
 		return JSON.parse(content);
 	} catch (err) {
 		const match = typeof content === 'string' && content.match(/\{[\s\S]*\}/);
-		return match ? JSON.parse(match[0]) : null;
+		try {
+			return match ? JSON.parse(match[0]) : null;
+		} catch (err) {
+			return null;
+		}
 	}
 }
 
 async function readJsonResponse(response) {
 	const text = await response.text();
 	try {
-		return text ? JSON.parse(text) : {};
+		return text ? JSON.parse(text) || {} : {};
 	} catch (err) {
 		return { raw: text };
 	}
@@ -40,7 +47,7 @@ function isModelQuestion(question) {
 	return /模型|大模型|api|API|小米|MiMo|mimo|Xiaomi|DeepSeek|deepseek/i.test(question || '');
 }
 
-function buildFallbackDecision(snapshot, reason) {
+function buildFallbackDecision(snapshot, reason, code) {
 	const temp = Number(snapshot.temperature || 0);
 	const heartRate = Number(snapshot.heartRate || 0);
 	const bloodOxygen = Number(snapshot.bloodOxygen || 0);
@@ -58,28 +65,32 @@ function buildFallbackDecision(snapshot, reason) {
 
 	const riskLevel = abnormalItems.length > 0 ? 'danger' : 'safe';
 	return {
+		source: 'local-threshold',
+		model: XIAOMI_MODEL,
+		errorCode: code,
 		riskLevel,
 		confidence: 60,
 		summary: riskLevel === 'danger'
-			? '小米 MiMo 暂时繁忙，已先按本地阈值判断存在风险。'
-			: '小米 MiMo 暂时繁忙，已先按本地阈值判断当前未见明显风险。',
+			? '云端 AI 未返回有效结果，本地阈值判断存在风险。'
+			: '云端 AI 未返回有效结果，本地阈值判断当前未见明显风险。',
 		reason: `${reason} 当前值：温度 ${temp}、心率 ${heartRate}、血氧 ${bloodOxygen}、MQ2 ${mq2}、MQ7 ${mq7}。`,
 		abnormalItems,
-		trend: '云端模型未及时返回，趋势结论暂按本地最近数据保守处理。',
+		trend: '当前结果仅来自本地阈值，暂无云端 AI 趋势结论。',
 		suggestion: riskLevel === 'danger'
 			? '请现场复核传感器和人员状态，必要时立即处置。'
 			: '继续监测，稍后可再次点击 AI 分析。'
 	};
 }
 
-async function fetchWithTimeout(url, options, timeoutMs) {
+async function fetchJsonWithTimeout(url, options, timeoutMs) {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 	try {
-		return await fetch(url, {
+		const response = await fetch(url, {
 			...options,
 			signal: controller.signal
 		});
+		return { response, result: await readJsonResponse(response) };
 	} finally {
 		clearTimeout(timer);
 	}
@@ -92,6 +103,7 @@ function buildMessages({ isChat, question, snapshot }) {
 			content: isChat ? [
 				'You are a helpful Chinese AI assistant embedded in a mine safety IoT dashboard.',
 				'When the question asks about mine dashboard data, worker history, sensor values, alarms, locations, or falls, answer only from the provided snapshot.',
+				'In eventHistory, type="area" records location changes and type="status" records personnel status changes. Report exact recorded times when asked, and never invent missing history.',
 				`This proxy is currently configured to call Xiaomi MiMo model "${XIAOMI_MODEL}".`,
 				'Return only JSON with schema: {"answer":"Chinese answer","evidence":[],"confidence":0-100}. Keep the answer concise.'
 			].join(' ') : [
@@ -117,8 +129,28 @@ function buildMessages({ isChat, question, snapshot }) {
 	];
 }
 
-async function callXiaomi({ isChat, question, snapshot }) {
-	const apiKey = getXiaomiApiKey();
+function failedCall({ isChat, snapshot, message, code, providerStatus, statusCode = 502 }) {
+	if (!isChat) {
+		return json(200, { decision: buildFallbackDecision(snapshot || {}, message, code) });
+	}
+	return json(statusCode, { error: message, code, providerStatus });
+}
+
+function providerError(status) {
+	const messages = {
+		400: ['INVALID_REQUEST', '小米 MiMo 请求参数或模型配置无效，请检查模型和请求格式。'],
+		401: ['AUTHENTICATION_FAILED', '小米 MiMo 密钥无效或与接口地址不匹配，请检查 MIMO_API_KEY。'],
+		402: ['INSUFFICIENT_BALANCE', '小米 MiMo 账户余额不足，请到小米开放平台检查余额。'],
+		403: ['ACCESS_DENIED', '小米 MiMo 拒绝访问，请检查账户权限、地区限制或密钥状态。'],
+		404: ['MODEL_NOT_FOUND', '小米 MiMo 接口或模型不可用，请检查接口地址和模型配置。'],
+		421: ['CONTENT_BLOCKED', '小米 MiMo 内容审核拦截了本次请求，请调整问题后重试。'],
+		429: ['RATE_LIMITED', '小米 MiMo 请求过于频繁或套餐额度已用尽，请稍后重试并检查额度。']
+	};
+	const [code, message] = messages[status] || ['PROVIDER_ERROR', `小米 MiMo 服务返回错误（HTTP ${status}），请稍后重试。`];
+	return { code, message, providerStatus: status };
+}
+
+async function callXiaomi({ isChat, question, snapshot, apiKey = getXiaomiApiKey() }) {
 	if (!apiKey) {
 		return json(500, { error: 'Netlify 没有配置 MIMO_API_KEY 或 XIAOMI_API_KEY 环境变量。' });
 	}
@@ -134,8 +166,9 @@ async function callXiaomi({ isChat, question, snapshot }) {
 	}
 
 	let xiaomiRes;
+	let result;
 	try {
-		xiaomiRes = await fetchWithTimeout(XIAOMI_API_URL, {
+		const fetched = await fetchJsonWithTimeout(XIAOMI_API_URL, {
 			method: 'POST',
 			headers: {
 				'api-key': apiKey,
@@ -146,32 +179,37 @@ async function callXiaomi({ isChat, question, snapshot }) {
 				model: XIAOMI_MODEL,
 				temperature: 0.1,
 				top_p: 0.95,
-				max_completion_tokens: isChat ? 900 : 420,
+				max_completion_tokens: 1024,
+				thinking: { type: 'disabled' },
 				stream: false,
 				response_format: { type: 'json_object' },
 				messages: buildMessages({ isChat, question, snapshot })
 			})
-		}, isChat ? 28000 : 9000);
+		}, isChat ? 25000 : 20000);
+		xiaomiRes = fetched.response;
+		result = fetched.result;
 	} catch (err) {
-		if (!isChat && err && err.name === 'AbortError') {
-			return json(200, {
-				decision: buildFallbackDecision(snapshot || {}, '云端模型暂时繁忙，已启用本地阈值兜底分析。')
-			});
-		}
-		throw err;
+		const timedOut = err && err.name === 'AbortError';
+		return failedCall({ isChat, snapshot,
+			code: timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
+			message: timedOut ? '小米 MiMo 请求超时，请稍后重试。' : '无法连接小米 MiMo 服务，请检查网络后重试。',
+			statusCode: timedOut ? 504 : 502
+		});
 	}
 
-	const result = await readJsonResponse(xiaomiRes);
-	const content = result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content;
+	if (!xiaomiRes.ok) return failedCall({ isChat, snapshot, ...providerError(xiaomiRes.status) });
+	const choice = result.choices && result.choices[0];
+	if (choice && choice.finish_reason === 'length') {
+		return failedCall({ isChat, snapshot, code: 'OUTPUT_TRUNCATED', message: '小米 MiMo 回答超出输出额度而被截断，请缩短问题后重试。' });
+	}
+	const content = choice && choice.message && choice.message.content;
 	const parsed = parseModelJson(content);
 
-	if (!xiaomiRes.ok || !parsed) {
-		if (!isChat) {
-			return json(200, {
-				decision: buildFallbackDecision(snapshot || {}, '云端模型返回异常，已启用本地阈值兜底分析。')
-			});
-		}
-		return json(502, { error: '小米 MiMo API 请求失败', detail: result });
+	const valid = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (isChat
+		? typeof parsed.answer === 'string' && parsed.answer.trim()
+		: ['safe', 'watch', 'danger'].includes(parsed.riskLevel) && typeof parsed.summary === 'string' && parsed.summary.trim());
+	if (!valid) {
+		return failedCall({ isChat, snapshot, code: 'INVALID_RESPONSE', message: '小米 MiMo 未返回有效的 JSON 回答，请稍后重试。' });
 	}
 
 	if (isChat) {
@@ -186,6 +224,8 @@ async function callXiaomi({ isChat, question, snapshot }) {
 
 	return json(200, {
 		decision: {
+			source: 'xiaomi',
+			model: XIAOMI_MODEL,
 			riskLevel: parsed.riskLevel || 'watch',
 			confidence: Number(parsed.confidence || 70),
 			summary: parsed.summary || '',
@@ -197,4 +237,4 @@ async function callXiaomi({ isChat, question, snapshot }) {
 	});
 }
 
-module.exports = { callXiaomi, json };
+module.exports = { callXiaomi, json, XIAOMI_MODEL };
