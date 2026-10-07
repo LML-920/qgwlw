@@ -301,7 +301,7 @@
 				</view>
 				<view class="footer-item">
 					<text class="footer-label">赛事</text>
-					<text class="footer-val accent">全国物联网大赛参赛作品</text>
+					<text class="footer-val accent">河南物联网大赛参赛作品</text>
 				</view>
 				<view class="footer-item">
 					<text class="footer-label">刷新</text>
