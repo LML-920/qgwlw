@@ -43,7 +43,7 @@ OneNET 保持浏览器直连，不经过 Netlify：
 - 查询：`https://iot-api.heclouds.com/thingmodel/query-device-property`
 - 下发：`https://iot-api.heclouds.com/thingmodel/set-device-desired-property`
 
-设备参数目前写在 `pages/index/index.vue`：
+设备参数目前保留在 `lib/telemetry.js`：
 
 - Product ID: `0TC2zqK8BU`
 - Device Name: `ESP32S3`
@@ -60,3 +60,32 @@ OneNET 保持浏览器直连，不经过 Netlify：
 `config/xiaomi.private.js`
 
 内容参考 `config/xiaomi.private.example.js`。
+
+## 矿安智联 V2.0 网页
+
+原网站地址：https://qgwlw.netlify.app/ 。继续发布 main 分支中的 `unpackage/dist/build/web`，不新建站点。
+
+- 首页：井下四矿洞示意图、按 NFC 记录显示人员位置、井口指挥所（P4 基站端与数据网页端入口）、重点人员、心率与环境趋势、报警记录。
+- 工作页：人员监测、报警中心、AI 研判、员工管理、设备中心。
+- 当前协议只有一套物理采集端（ESP32S3），绑定 EMP-001。其他员工只有独立档案，不复制设备 01 的读数。
+- 默认四份姓名与 AI 人像为演示档案，头像与 P4 默认资源一致；可新增档案、更改姓名、岗位、班组和上传照片。档案、照片、历史与报警保存在当前浏览器，P4 自动同步和跨浏览器同步未接入。
+- NFC 0 表示矿洞外，1–4 对应四个矿洞；不表示精确坐标。矿洞图为 AI 生成概念示意，非真实矿区地图。
+- OneNET 可访问与物理设备在线分别显示；若属性时间距今超过 30 秒，标注数据已过期，不将旧读数持续追加为新的采样或报警。
+
+### 本机编译与验证
+
+本机使用已安装的 HBuilderX uni-app 编译器，避免改变原有工程结构：
+
+```powershell
+npm run build
+npm test
+npm run preview
+```
+
+默认 HBuilderX 路径是 `E:/html/HBuilderX`，其他电脑可设置 `HBUILDERX_HOME` 指向安装目录（需安装 uniapp-cli-vite 插件）。已安装项目内 uni-app CLI 时优先使用项目依赖。预览默认监听 `http://127.0.0.1:4173`。构建成功后提交源码与生成的 web 目录，再推送 GitHub；Netlify 继续用已编译产物部署。
+
+### 视觉资料
+
+结构参考用户提供的工业监控大屏，以及 [ThingsBoard 官方 GitHub 的工业 SCADA 与遥测仪表盘资料](https://github.com/thingsboard/thingsboard)。本页组件和图表自行实现，未复制该项目代码。
+
+`static/mine-map.png` 由内置 imagegen 工具生成，提示词记录于 [矿洞素材说明](static/mine-map-prompt.md)。

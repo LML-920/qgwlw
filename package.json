@@ -1,0 +1,20 @@
+{
+  "name": "mine-safe-control-room",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build-web.cjs",
+    "test": "node --test tests/*.test.js tests/*.test.mjs",
+    "preview": "node tools/preview-web.cjs"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-5000120260205002",
+    "@dcloudio/uni-components": "3.0.0-alpha-5000120260205002",
+    "@dcloudio/uni-h5": "3.0.0-alpha-5000120260205002",
+    "vue": "3.4.21"
+  },
+  "devDependencies": {
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5000120260205002",
+    "vite": "5.2.8"
+  }
+}

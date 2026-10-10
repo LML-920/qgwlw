@@ -13,9 +13,10 @@
 </script>
 
 <style>
+@import "./pages/index/control-room.css";
 	/* 全局样式 */
 	page {
-		background: #0a0e17;
-		color: #e2e8f0;
+		background: #0d1420;
+		color: #e4ebf3;
 	}
 </style>

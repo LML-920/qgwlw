@@ -1,9 +1,9 @@
 {
-    "name" : "温湿度监控",
+    "name" : "矿安智联",
     "appid" : "__UNI__1B71207",
-    "description" : "温湿度监控",
-    "versionName" : "1.0.0",
-    "versionCode" : "100",
+    "description" : "面向矿山作业的多终端协同安全监测与 AI 研判系统",
+    "versionName" : "2.0.0",
+    "versionCode" : "200",
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {

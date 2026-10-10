@@ -3,15 +3,16 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "矿洞安全系统"
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "矿安智联"
 			}
 		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
+		"navigationBarTitleText": "矿安智联",
 		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"backgroundColor": "#0D1420"
 	},
 	"uniIdRouter": {}
 }
