@@ -385,7 +385,7 @@ html, body, page, uni-page-body { margin: 0; background: #0d1420; color: #e4ebf3
 .file-input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; cursor: pointer; }
 .avatar-picker { margin-top: 18px; }
 .avatar-picker > span { font-size: 10px; color: #87a1b6; }
-.avatar-picker > div { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.avatar-picker > div { display: grid; grid-template-columns: repeat(4, 54px); gap: 12px; margin-top: 10px; }
 .avatar-picker :is([data-native-button], uni-button) { position: relative; border: 2px solid #344b60 !important; border-radius: 7px !important; padding: 2px !important; }
 .avatar-picker :is([data-native-button], uni-button).selected { border-color: #84d6b9 !important; }
 .avatar-picker img { width: 44px; height: 47px; border-radius: 4px; }
