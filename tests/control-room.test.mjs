@@ -53,30 +53,24 @@ test('invalid vitals are blank while zero temperature remains a valid reading', 
 test('employee normalization prevents duplicate identities and forged device bindings', () => {
   const employees = personnel.normalizeEmployees([{ id: 'EMP-002', name: '测试', avatar: 'javascript:alert(1)', device: 'ESP32S3' }, { id: 'EMP-002', name: '重复' }]);
   assert.equal(employees.filter(worker => worker.device).length, 1);
-  assert.equal(employees.find(worker => worker.id === 'EMP-002').device, '');
-  assert.equal(employees.length, 2);
-  assert.equal(employees[1].avatar, personnel.DEFAULT_AVATARS[0]);
+  assert.equal(employees.find(worker => worker.id === 'EMP-002').device, 'ESP32S3');
+  assert.equal(employees.length, 1);
+  assert.equal(employees[0].avatar, personnel.DEFAULT_AVATARS[0]);
   assert.equal(personnel.validAvatar('data:image/svg+xml;base64,PHN2Zz4='), false);
 });
 
-test('failed storage leaves employee data and editor intact; successful save persists the fixed identity', () => {
-  const vm = room();
-  vm.editEmployee(vm.workers[0]);
-  vm.employeeDraft.name = '新姓名';
-  const previous = vm.workers;
-  globalThis.uni = { setStorageSync() { throw new Error('quota'); } };
-  vm.saveEmployee();
-  assert.equal(vm.workers, previous);
-  assert.equal(vm.employeeEditorOpen, true);
-  assert.match(vm.editorError, /未保存/);
-  let saved;
-  globalThis.uni = { setStorageSync(key, value) { saved = { key, value }; } };
-  vm.saveEmployee();
-  assert.equal(saved.key, personnel.EMPLOYEE_STORAGE_KEY);
-  assert.equal(saved.value[0].name, '新姓名');
-  assert.equal(saved.value[0].id, 'EMP-001');
-  assert.equal(saved.value[0].device, 'ESP32S3');
-  assert.equal(vm.employeeEditorOpen, false);
+test('failed cloud save preserves editor; successful save retains fixed identity', async () => {
+  const vm=room();vm.editEmployee(vm.workers[0]);vm.employeeDraft.name='新姓名';
+  const previous=vm.workers;vm.publishPersonnel=async()=>{throw Error('云端未保存');};
+  await vm.saveEmployee();assert.equal(vm.workers,previous);assert.equal(vm.employeeEditorOpen,true);assert.match(vm.editorError,/未保存/);
+  let saved;vm.publishPersonnel=async next=>{saved=next;vm.workers=next;};
+  await vm.saveEmployee();assert.equal(saved[0].name,'新姓名');assert.equal(saved[0].id,'EMP-001');assert.equal(saved[0].device,'ESP32S3');assert.equal(vm.employeeEditorOpen,false);
+});
+test('all employees can be deleted without recreating default identities',()=>{
+  assert.deepEqual(personnel.normalizeEmployees([]),[]);const vm=room({workers:[]});assert.equal(vm.boundEmployee.id,'');assert.equal(vm.selectedEmployee.id,'');assert.deepEqual(vm.overviewWorkers,[]);
+});
+test('binding transfers the physical source to the selected employee',async()=>{
+  const vm=room();vm.editEmployee(vm.workers[1]);vm.employeeDraft.device='ESP32S3';vm.publishPersonnel=async next=>{vm.workers=next;};await vm.saveEmployee();assert.equal(vm.workers[0].device,'');assert.equal(vm.boundEmployee.id,'EMP-002');assert.equal(vm.workers.filter(item=>item.device).length,1);
 });
 
 test('alarms deduplicate ongoing anomalies, retain acknowledgment and record a new recurrence', () => {
