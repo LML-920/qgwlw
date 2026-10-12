@@ -16,6 +16,8 @@ const result = spawnSync(process.execPath, [cli, 'build', '-p', 'h5'], {
 if (result.status === 0) {
   // HBuilderX may emit CRCRLF in index.html on Windows; keep the tracked output portable.
   const index = path.join(root, 'unpackage/dist/build/web/index.html');
-  fs.writeFileSync(index, fs.readFileSync(index, 'utf8').replace(/\r+\n/g, '\n').replace(/[ \t]+$/gm, ''));
+  // The map's reactive src uses the copied static URL. Keep its preload on
+  // that same URL; Vite otherwise hashes it and downloads a second copy.
+  fs.writeFileSync(index, fs.readFileSync(index, 'utf8').replace(/\r+\n/g, '\n').replace(/[ \t]+$/gm, '').replace(/href="\/assets\/mine-map-v3-[^"]+\.webp"/g, 'href="/static/mine-map-v3.webp"'));
 }
 process.exit(result.status ?? 1);

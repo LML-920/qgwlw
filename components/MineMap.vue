@@ -2,7 +2,7 @@
   <div class="mine-map">
     <div class="mine-map-viewport">
       <div class="mine-map-scene" :style="{ transform: `scale(${zoom})` }">
-        <img class="mine-map-background" src="/static/mine-map.png" alt="四个矿洞通过井下巷道连接的概念示意图" />
+        <img v-if="!imageFailed" class="mine-map-background" :src="imageSource" width="1536" height="1024" decoding="async" fetchpriority="high" @load="imageLoaded = true" @error="recoverImage" alt="四个矿洞、井口指挥房屋和通信基站的概念示意图" />
         <div class="mine-map-shade"></div>
         <svg class="mine-map-routes" viewBox="0 0 1000 650" preserveAspectRatio="none" aria-hidden="true"><path d="M500 570L500 340L260 340L260 160M500 340L760 340L760 160M260 340L260 475M760 340L760 475" fill="none" stroke="#4aacf4" stroke-width="2" stroke-dasharray="5 8" opacity=".45"/></svg>
         <NativeButton v-for="region in regions" :key="region.id" :class="['mine-region', { selected: selectedArea === region.id, occupied: recordedArea === region.id }]" :style="{ left: region.x + '%', top: region.y + '%' }" @click="selectedArea = region.id" :aria-label="`${region.name}，${recordedArea === region.id ? worker.name + '最近记录在此' : '暂无人员记录'}`">
@@ -15,7 +15,8 @@
       <div class="mine-map-legend"><span><i class="legend-person"></i>人员位置记录</span><span><i class="legend-alarm"></i>异常待核查</span><span><i class="legend-station"></i>矿安基站</span></div>
       <div class="map-zoom"><NativeButton @click="zoom = Math.min(1.6, zoom + .15)" :disabled="zoom >= 1.6" aria-label="放大矿洞地图"><AppIcon name="plus"/></NativeButton><NativeButton @click="zoom = Math.max(1, zoom - .15)" :disabled="zoom <= 1" aria-label="缩小矿洞地图"><span>−</span></NativeButton><NativeButton @click="zoom = 1" aria-label="复位矿洞地图"><AppIcon name="expand"/></NativeButton></div>
       <div class="map-concept-note">矿洞区域示意 · 非真实矿区地图</div>
-      <div v-if="commandOpen" class="map-command-detail"><div><strong><AppIcon name="shield"/>井口指挥所</strong><NativeButton @click="commandOpen = false" aria-label="关闭指挥所信息"><AppIcon name="close"/></NativeButton></div><p>现场汇聚 · 云端监测 · 辅助研判</p><NativeButton @click="$emit('navigate', 'devices')"><AppIcon name="device"/><span><strong>P4 基站端</strong><small>头盔与手环数据汇聚</small></span><AppIcon name="arrow"/></NativeButton><NativeButton @click="$emit('navigate', 'personnel')"><AppIcon name="grid"/><span><strong>数据网页端</strong><small>人员监测与矿洞区域记录</small></span><AppIcon name="arrow"/></NativeButton></div>
+      <div v-if="!imageLoaded" class="map-load-status" role="status"><span>{{ imageFailed ? '显示轻量地图预览' : '地图细节加载中…' }}</span><NativeButton v-if="imageFailed" @click="retryImage">重新加载</NativeButton></div>
+      <div v-if="commandOpen" class="map-command-detail"><div><strong><AppIcon name="shield"/>井口指挥所</strong><NativeButton @click="commandOpen = false" aria-label="关闭指挥所信息"><AppIcon name="close"/></NativeButton></div><p>现场汇聚 · 云端监测 · 辅助研判</p><p class="station-sync">{{ syncState }}</p><NativeButton @click="$emit('navigate', 'devices')"><AppIcon name="device"/><span><strong>P4 基站端</strong><small>头盔与手环数据汇聚</small></span><AppIcon name="arrow"/></NativeButton><NativeButton @click="$emit('navigate', 'personnel')"><AppIcon name="grid"/><span><strong>数据网页端</strong><small>人员监测与矿洞区域记录</small></span><AppIcon name="arrow"/></NativeButton></div>
     </div>
     <div class="mine-map-detail"><span class="map-area-summary"><AppIcon name="pin"/><strong>{{ selectedRegion.name }}</strong><span>{{ recordedArea === selectedArea ? worker.name + ' · 最近记录在此' : '暂无人员记录' }}</span></span><small>{{ recordedArea === null ? '等待有效 NFC 区域数据' : locationText + (stale ? ' · 上次记录' : ' · NFC 区域记录') }}</small></div>
   </div>
@@ -26,8 +27,12 @@ import NativeButton from './NativeButton.vue';
 export default {
   components: { AppIcon, NativeButton },
   emits: ['employee', 'navigate'],
-  props: { worker: { type: Object, required: true }, area: { default: '' }, hasReadings: Boolean, stale: Boolean, alarm: Boolean, connected: Boolean },
-  data() { return { zoom: 1, commandOpen: false, selectedArea: 1, regions: [{ id: 1, name: '一号矿洞', x: 24, y: 22 }, { id: 2, name: '二号矿洞', x: 75, y: 22 }, { id: 3, name: '三号矿洞', x: 24, y: 69 }, { id: 4, name: '四号矿洞', x: 75, y: 69 }] }; },
+  props: { worker: { type: Object, required: true }, area: { default: '' }, hasReadings: Boolean, stale: Boolean, alarm: Boolean, connected: Boolean, syncState:{type:String,default:'等待基站确认'} },
+  data() { return { imageSource:'/static/mine-map-v3.webp', imageLoaded:false, imageFailed:false, zoom: 1, commandOpen: false, selectedArea: 1, regions: [{ id: 1, name: '一号矿洞', x: 24, y: 22 }, { id: 2, name: '二号矿洞', x: 75, y: 22 }, { id: 3, name: '三号矿洞', x: 24, y: 69 }, { id: 4, name: '四号矿洞', x: 75, y: 69 }] }; },
+  methods: {
+    recoverImage() { if(this.imageSource.includes('.webp')) this.imageSource='/static/mine-map-v3.jpg'; else this.imageFailed=true; },
+    retryImage() { this.imageLoaded=false; this.imageSource='/static/mine-map-v3.webp?retry='+Date.now(); this.imageFailed=false; }
+  },
   computed: {
     recordedArea() { const value = String(this.area); return this.hasReadings && /^[0-4]$/.test(value) ? Number(value) : null; },
     selectedRegion() { return this.regions.find(region => region.id === this.selectedArea); },

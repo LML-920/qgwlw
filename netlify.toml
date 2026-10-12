@@ -6,3 +6,13 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/static/mine-map-v3*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/static/ai-avatars-v3/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

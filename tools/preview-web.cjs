@@ -2,7 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../unpackage/dist/build/web');
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.webp':'image/webp', '.jpg':'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const core=require('../netlify/lib/personnel-core.cjs');
 const access=require('../netlify/functions/personnel-access.json');
 const entries=new Map();let revision=0;

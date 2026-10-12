@@ -20,6 +20,28 @@ function room(overrides = {}) {
   vm.notify = () => {};
   return vm;
 }
+test('map falls back to JPEG, retains preview and permits an explicit retry',()=>{
+  const vm=mineMap.data();
+  mineMap.methods.recoverImage.call(vm);
+  assert.equal(vm.imageSource,'/static/mine-map-v3.jpg');
+  assert.equal(vm.imageFailed,false);
+  mineMap.methods.recoverImage.call(vm);
+  assert.equal(vm.imageFailed,true);
+  mineMap.methods.retryImage.call(vm);
+  assert.equal(vm.imageFailed,false);
+  assert.match(vm.imageSource,/mine-map-v3.webp\?retry=/);
+});
+test('AI portrait library includes four different new mining helmets',()=>{
+  assert.equal(personnel.DEFAULT_AVATARS.length,8);
+  for(const avatar of personnel.DEFAULT_AVATARS.slice(4)) assert.equal(personnel.validAvatar(avatar),true);
+});
+test('personnel requests load without a management password',async()=>{
+  const original=globalThis.fetch;
+  let request;
+  globalThis.fetch=async(url,options)=>{request=options;return {ok:true,json:async()=>({revision:6})};};
+  try {assert.equal((await personnelSync.methods.personnelRequest.call({},'')).revision,6);assert.equal(request.headers.Authorization,undefined);}
+  finally {globalThis.fetch=original;}
+});
 
 test('unbound employees cannot inherit the physical device readings or history', () => {
   const vm = room({ updateTime: '2026-10-10 12:00:00', heartRate: 78, area: 2, selectedEmployeeId: 'EMP-002' });

@@ -28,7 +28,9 @@ function validate(input, previous) {
   return { employees, bindingChanged:oldBound !== newBound };
 }
 async function handle({ method, query = {}, authorization, body }, store, access, now = () => new Date().toISOString()) {
-  const role = authenticate(authorization, access);
+  // The competition workspace is deliberately editable without a login.
+  // A supplied but invalid device token still fails, and only devices can ACK.
+  const role = authenticate(authorization, access) || (!authorization && access.publicEditor === true ? 'admin' : null);
   if (!role) return reply(401, {error:'请输入正确的管理口令'});
   if (method === 'GET' && query.asset) {
     if (!/^[a-f0-9]{64}$/.test(query.asset)) return reply(400,{error:'无效照片'});
