@@ -8,6 +8,7 @@ const personnelUrl = moduleUrl(await source('lib/personnel.js'));
 const personnel = await import(personnelUrl);
 const controlRoom = (await import(moduleUrl((await source('lib/control-room.js')).replace("'./personnel.js'", JSON.stringify(personnelUrl))))).default;
 const telemetry = (await import(moduleUrl(await source('lib/telemetry.js')))).default;
+const personnelSync = (await import(moduleUrl((await source('lib/personnel-sync.js')).replace("'./personnel.js'", JSON.stringify(personnelUrl))))).default;
 const mapSource = (await source('components/MineMap.vue')).split('<script>')[1].split('</script>')[0].replace(/^import .*;$/gm, '').replace('components: { AppIcon, NativeButton }', 'components: {}');
 const mineMap = (await import(moduleUrl(mapSource))).default;
 function room(overrides = {}) {
@@ -117,4 +118,20 @@ test('mine marker uses valid NFC regions, distinguishes entrance zero from missi
   vm.area = 2;
   vm.hasReadings = false;
   assert.equal(vm.recordedArea, null);
+});
+
+test('rebinding hides readings collected before the new assignment',()=>{
+  const vm=room({updateTime:'read',bindingSince:10000,sensorTimestamp:9000});assert.equal(vm.hasReadings,false);assert.equal(vm.selectedHasReadings,false);vm.sensorTimestamp=11000;assert.equal(vm.hasReadings,true);
+});
+
+test('a binding changed while the page was closed clears persisted history even if the employee is the same',()=>{
+  const storage=new Map([['mine-safe-binding-stamp-v1',1000]]);
+  globalThis.uni={getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>storage.set(key,value)};
+  const vm=room({bindingSince:3000,updateTime:'old',sensorTimestamp:2000});
+  vm.historyRecords.heartRate=[{value:78,time:'old'}];
+  personnelSync.methods.applyPersonnel.call(vm,vm.workers);
+  assert.deepEqual(vm.historyRecords.heartRate,[]);
+  assert.deepEqual(storage.get('sensorHistoryRecords').heartRate,[]);
+  assert.equal(storage.get('mine-safe-binding-stamp-v1'),3000);
+  assert.equal(vm.sensorTimestamp,0);
 });
